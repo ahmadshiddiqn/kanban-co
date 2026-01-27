@@ -1,0 +1,8 @@
+name = "kanban"
+compatibility_date = "2025-01-01"
+
+[build]
+command = "npm run build"
+
+[site]
+bucket = ".svelte-kit/cloudflare"
