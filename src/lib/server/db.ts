@@ -3,6 +3,7 @@ import { env } from '$env/dynamic/private';
 
 const db = new Database('kanban.db');
 
+// Run migrations
 db.exec(`
   CREATE TABLE IF NOT EXISTS boards (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -16,20 +17,6 @@ db.exec(`
     name TEXT NOT NULL,
     position INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    column_id INTEGER NOT NULL,
-    title TEXT NOT NULL,
-    description TEXT,
-    position INTEGER NOT NULL DEFAULT 0,
-    priority TEXT DEFAULT 'medium',
-    due_date DATETIME,
-    tags TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (column_id) REFERENCES columns(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS subtasks (
@@ -52,6 +39,36 @@ db.exec(`
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
   );
 `);
+
+// Handle tasks table with migrations for existing databases
+const tasksColumns = db.prepare("PRAGMA table_info(tasks)").all() as { name: string }[];
+const taskColumnNames = tasksColumns.map(c => c.name);
+
+if (!taskColumnNames.includes('due_date')) {
+  db.prepare("ALTER TABLE tasks ADD COLUMN due_date DATETIME").run();
+}
+if (!taskColumnNames.includes('tags')) {
+  db.prepare("ALTER TABLE tasks ADD COLUMN tags TEXT").run();
+}
+
+// Ensure tasks table exists with all columns
+if (!taskColumnNames.includes('id')) {
+  db.exec(`
+    CREATE TABLE tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      column_id INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      position INTEGER NOT NULL DEFAULT 0,
+      priority TEXT DEFAULT 'medium',
+      due_date DATETIME,
+      tags TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (column_id) REFERENCES columns(id) ON DELETE CASCADE
+    )
+  `);
+}
 
 // Seed default board if empty
 const boardCount = db.prepare('SELECT COUNT(*) as count FROM boards').get() as { count: number };
