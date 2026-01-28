@@ -1,16 +1,10 @@
-import { handler } from './build/handler.js';
-import express from 'express';
-import { createServer } from 'http';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { json } from '@sveltejs/kit';
 
 const execAsync = promisify(exec);
 
-const app = express();
-const server = createServer(app);
-
-// Clawdbot status endpoint
-app.get('/api/dio-status', async (req, res) => {
+export async function GET() {
   try {
     const { stdout } = await execAsync('clawdbot sessions list --json');
     const data = JSON.parse(stdout);
@@ -34,7 +28,7 @@ app.get('/api/dio-status', async (req, res) => {
       state = 'sleeping';
     }
 
-    res.json({
+    return json({
       status,
       state,
       sessionAgeMs: ageMs,
@@ -44,16 +38,9 @@ app.get('/api/dio-status', async (req, res) => {
       tokensUsed: session?.totalTokens || 0
     });
   } catch (error) {
-    res.status(500).json({
+    return json({
       error: 'Failed to get Clawdbot status',
       message: error.message
-    });
+    }, { status: 500 });
   }
-});
-
-app.use(handler);
-
-const PORT = 5000;
-server.listen(PORT, () => {
-  console.log(`Kanban server running on port ${PORT}`);
-});
+}
