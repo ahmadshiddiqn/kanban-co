@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { BoardWithColumns, ColumnWithTasks, Task } from '$lib/types';
+  import TaskDetail from '$lib/components/TaskDetail.svelte';
 
   let board = $state<BoardWithColumns | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
+  let selectedTask = $state<Task | null>(null);
   
   // New task form state
   let newTaskTitle = $state('');
@@ -75,6 +77,22 @@
     }
   }
 
+  async function openTaskDetail(task: Task) {
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`);
+      if (res.ok) {
+        selectedTask = await res.json();
+      }
+    } catch (e) {
+      console.error('Failed to load task details:', e);
+    }
+  }
+
+  function closeTaskDetail() {
+    selectedTask = null;
+    loadBoard(); // Refresh to show any changes
+  }
+
   onMount(loadBoard);
 </script>
 
@@ -101,10 +119,10 @@
           
           <div class="tasks">
             {#each column.tasks as task (task.id)}
-              <div class="task priority-{task.priority}">
+              <div class="task priority-{task.priority}" onclick={() => openTaskDetail(task)}>
                 <div class="task-header">
                   <span class="task-title">{task.title}</span>
-                  <button class="delete-btn" onclick={() => deleteTask(task.id)}>×</button>
+                  <button class="delete-btn" onclick={(e) => { e.stopPropagation(); deleteTask(task.id); }}>×</button>
                 </div>
                 {#if task.description}
                   <p class="task-desc">{task.description}</p>
@@ -112,6 +130,7 @@
                 <div class="task-footer">
                   <select 
                     value={task.priority} 
+                    onclick={(e) => e.stopPropagation()}
                     onchange={(e) => updateTaskPriority(task, e.currentTarget.value)}
                   >
                     <option value="low">🟢 Low</option>
@@ -160,6 +179,14 @@
     <div class="empty">No board found</div>
   {/if}
 </div>
+
+{#if selectedTask}
+  <TaskDetail 
+    task={selectedTask} 
+    onclose={closeTaskDetail}
+    onupdate={closeTaskDetail}
+  />
+{/if}
 
 <style>
   :global(*) {
